@@ -1,0 +1,75 @@
+========================================================================
+                 LEARNING OS — ESTIMATED PRICING & COST BREAKDOWN
+========================================================================
+
+Since we selected a serverless-managed stack leveraging modern developer 
+free-tiers, the baseline operating cost for the MVP is **$0 (100% FREE)**.
+
+Below is the detailed itemized list of pricing for all services used:
+
+------------------------------------------------------------------------
+1. INFRASTRUCTURE & HOISTING
+------------------------------------------------------------------------
+* Vercel (Frontend & Serverless API API)
+  - Plan: Hobby Tier
+  - Cost: $0 / month
+  - Limits: 100 GB bandwidth/month, 4.5 million executions (plenty for MVP).
+
+* GitHub (Code Hosting)
+  - Plan: Free Tier
+  - Cost: $0 / month
+  - Limits: Unlimited private repositories, 2,000 GitHub Actions build minutes.
+
+------------------------------------------------------------------------
+2. DATABASE & STORAGE LAYER
+------------------------------------------------------------------------
+* Supabase (PostgreSQL Database + pgvector + Storage)
+  - Plan: Free Tier
+  - Cost: $0 / month
+  - Limits: 500 MB database space, 1 GB file storage, 50,000 active users.
+
+* Neo4j Aura (Knowledge Graph Database)
+  - Plan: Free Tier (AuraDB Free)
+  - Cost: $0 / month
+  - Limits: 1 active instance, 50,000 nodes, 200,000 relationships (more than 
+    enough to seed our initial Electronics syllabus / UGC NET exam data).
+
+------------------------------------------------------------------------
+3. AI COMPUTE LAYER (API & BROWSER ENDPOINTS)
+------------------------------------------------------------------------
+* Browser Automation (Gemini Web & ChatGPT Web)
+  - Plan: Browser Automation via Local Worker Agent
+  - Cost: $0 / month
+  - Limits: No token usage costs. You are using the standard web clients of 
+    Gemini and ChatGPT headlessly in the background.
+
+* Google AI Studio (Direct Gemini API Access)
+  - Plan: Free Tier
+  - Cost: $0 / month
+  - Limits: 
+    - Gemini 1.5 Flash: 15 Requests Per Minute (RPM), 1 million tokens/min.
+    - Gemini 1.5 Pro: 2 RPM, 32,000 tokens/min.
+
+* OpenRouter API (Frontier Models: Claude 3.5, GPT-4o, DeepSeek-R1)
+  - Plan: Pay-as-you-go (Optional/Fallback only)
+  - Cost: ~$0.00 to $2.00 / month (depends entirely on usage)
+  - Pricing Examples (Per 1 Million tokens):
+    - DeepSeek-R1 (High Reasoning): Input ~$0.55 | Output ~$2.19
+    - DeepSeek-V3 (General Purpose): Input ~$0.14 | Output ~$0.28
+    - Llama 3.3 70B (Fast & Cheap): Input ~$0.20 | Output ~$0.40
+    - Claude 3.5 Sonnet (Premium): Input ~$3.00 | Output ~$15.00
+  *Note: You only pay for what you query. You can set up a hard usage limit 
+  (e.g., $1.00 or $5.00 max budget) inside the OpenRouter dashboard.*
+
+* NVIDIA NIM (Developer API Fallback)
+  - Plan: Developer Account
+  - Cost: $0 (Starts with 1,000 free credits, enough for millions of tokens).
+
+------------------------------------------------------------------------
+4. SUMMARY OF MONTHLY COST
+------------------------------------------------------------------------
+* Base Operating Cost:      $0.00 / month (Vercel + Supabase + Neo4j + APIs Free Tier)
+* Optional Paid Fallbacks:  $0.50 to $2.00 / month (OpenRouter model tests)
+------------------------------------------------------------------------
+* TOTAL EXPECTED COST:      $0.00 / month
+========================================================================

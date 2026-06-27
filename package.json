@@ -1,0 +1,21 @@
+{
+  "name": "learning-os-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.0"
+  },
+  "packageManager": "npm@9.0.0",
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}

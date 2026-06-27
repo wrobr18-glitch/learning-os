@@ -1,0 +1,76 @@
+========================================================================
+             LEARNING OS — DEVELOPER CONFIGURATION REQUIREMENTS
+========================================================================
+
+To build and deploy the Learning OS prototype on the free tier, please set 
+up the following accounts and collect these credentials.
+
+------------------------------------------------------------------------
+1. CODE HOSTING & DEPLOYMENT
+------------------------------------------------------------------------
+* GitHub Account:
+  We need a repository (e.g., learning-os) to store the codebase and link 
+  to Vercel for continuous integration.
+* Vercel Account:
+  Sign up with your GitHub account. Vercel will host the Next.js app 
+  and the Serverless API functions.
+
+------------------------------------------------------------------------
+2. DATABASE SERVICES (FREE TIERS)
+------------------------------------------------------------------------
+* Supabase Account & Project:
+  Go to https://supabase.com and create a free project named "Learning OS".
+  Keep the following ready:
+  - Project URL (e.g., https://xxxxxxxxxxxxxx.supabase.co)
+  - API Key (anon/public)
+  - Service Role API Key (secret key used to bypass Row Level Security)
+  - Connection string for migrations (PostgreSQL Direct/Transaction connection)
+
+* Neo4j Aura Account:
+  Go to https://neo4j.com/cloud/aura/ and create a free Neo4j Aura DB instance.
+  Keep the following ready:
+  - Connection URI (e.g., neo4j+s://xxxxxxxx.databases.neo4j.io)
+  - Database Username (default is: neo4j)
+  - Database Password
+
+------------------------------------------------------------------------
+3. AI API KEYS (FOR FALLBACK / METRICS / EXTRACTION)
+------------------------------------------------------------------------
+* OpenRouter API Key (RECOMMENDED Primary):
+  As of June 2026, OpenRouter is the absolute best option for solo developers. 
+  It allows you to access *all* frontier models (Claude 3.5 Sonnet, GPT-4o, 
+  DeepSeek-V3/R1, Gemini 1.5 Pro) with a single API key and unified payload format.
+* NVIDIA API Key (Secondary):
+  Excellent fallback for running fast, cheap, or free open-source models (like 
+  Llama 3/3.3 or Mistral).
+* Gemini API Key:
+  Get a free Gemini API key from Google AI Studio (https://aistudio.google.com/) 
+  for native, direct, low-latency calls to Gemini models.
+
+------------------------------------------------------------------------
+4. BROWSER PROVIDER LOGIN ("CONTINUE WITH GOOGLE" SSO BYPASS)
+------------------------------------------------------------------------
+Google OAuth blocks standard automation scripts (Playwright/Puppeteer) from logging 
+in, showing a "browser not secure" error. 
+
+To use "Continue with Google" for Gemini or ChatGPT:
+We will use a **Headed Persistent Profile Session**. 
+
+Here is what we will do during setup:
+1. We will run a script that launches Chromium visibly on your screen using a 
+   dedicated folder: `D:\Learning OS\profiles\google_profile`.
+2. A normal browser window will open. You will navigate to Gemini/ChatGPT.
+3. Click "Continue with Google", perform your login, and complete any 2FA/MFA.
+4. Once you are successfully logged in and inside the dashboard, close the browser.
+5. All login tokens, sessions, and cookies are now saved locally in your profile folder.
+6. Our background agent will run headlessly (invisibly) using that saved profile folder. 
+   It will bypass logins entirely and instantly be authenticated.
+
+------------------------------------------------------------------------
+5. LOCAL DEVELOPMENT PRE-REQUISITES
+------------------------------------------------------------------------
+Make sure your development machine has:
+* Node.js (v18.0.0 or higher)
+* Git installed and configured
+* VS Code or your preferred IDE
+========================================================================
