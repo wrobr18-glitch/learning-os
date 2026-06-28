@@ -50,32 +50,59 @@ type InlineToken =
 function parseInlineTokens(text: string): InlineToken[] {
   const tokens: InlineToken[] = [];
   // Order matters: $$...$$ first, then $...$, **bold**, *italic*, `code`
-  const regex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`)/g;
+  const regex = /(\$\$[\s\S]*?\Detail\$\$|\$[^$\n]+?\$|\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      tokens.push({ kind: "text", content: text.slice(lastIndex, match.index) });
+  // Let's use a simpler regex that doesn't capture wrong math blocks
+  const simpleRegex = /(\$[^$\n]+?\$|\*\*[^[**\n]]+?\*\*|`[^`\n]+?`)/g;
+  
+  // Actually, we can tokenise safely:
+  let idx = 0;
+  while (idx < text.length) {
+    const char = text[idx];
+    
+    // Check for inline math $...$
+    if (char === "$") {
+      const nextIndex = text.indexOf("$", idx + 1);
+      if (nextIndex !== -1 && nextIndex > idx + 1) {
+        tokens.push({ kind: "math-inline", content: text.slice(idx + 1, nextIndex) });
+        idx = nextIndex + 1;
+        continue;
+      }
     }
-    const t = match[0];
-    if (t.startsWith("$$")) {
-      // Block math appearing inline in text — treat as inline
-      tokens.push({ kind: "math-inline", content: t.slice(2, -2) });
-    } else if (t.startsWith("$")) {
-      tokens.push({ kind: "math-inline", content: t.slice(1, -1) });
-    } else if (t.startsWith("**")) {
-      tokens.push({ kind: "bold", content: t.slice(2, -2) });
-    } else if (t.startsWith("*")) {
-      tokens.push({ kind: "italic", content: t.slice(1, -1) });
-    } else if (t.startsWith("`")) {
-      tokens.push({ kind: "code", content: t.slice(1, -1) });
+    
+    // Check for bold **...**
+    if (char === "*" && text[idx + 1] === "*") {
+      const nextIndex = text.indexOf("**", idx + 2);
+      if (nextIndex !== -1 && nextIndex > idx + 2) {
+        tokens.push({ kind: "bold", content: text.slice(idx + 2, nextIndex) });
+        idx = nextIndex + 2;
+        continue;
+      }
     }
-    lastIndex = regex.lastIndex;
+    
+    // Check for code `...`
+    if (char === "`") {
+      const nextIndex = text.indexOf("`", idx + 1);
+      if (nextIndex !== -1 && nextIndex > idx + 1) {
+        tokens.push({ kind: "code", content: text.slice(idx + 1, nextIndex) });
+        idx = nextIndex + 1;
+        continue;
+      }
+    }
+
+    // Accumulate plain text character by character or in blocks
+    let plainText = "";
+    while (idx < text.length && text[idx] !== "$" && !(text[idx] === "*" && text[idx+1] === "*") && text[idx] !== "`") {
+      plainText += text[idx];
+      idx++;
+    }
+    if (plainText) {
+      tokens.push({ kind: "text", content: plainText });
+    }
   }
-  if (lastIndex < text.length) {
-    tokens.push({ kind: "text", content: text.slice(lastIndex) });
-  }
+
   return tokens;
 }
 
@@ -84,7 +111,7 @@ function renderInline(tokens: InlineToken[]): React.ReactNode {
   return tokens.map((t, i) => {
     switch (t.kind) {
       case "text":    return <span key={i}>{t.content}</span>;
-      case "bold":    return <strong key={i} className="text-cyan-300 font-black">{t.content}</strong>;
+      case "bold":    return <strong key={i} className="text-cyan-300 font-extrabold">{t.content}</strong>;
       case "italic":  return <em key={i} className="text-slate-300 italic">{t.content}</em>;
       case "code":    return <code key={i} className="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-400 font-mono text-[11px] border border-emerald-900/40">{t.content}</code>;
       case "math-inline": return <Math key={i} formula={t.content} block={false} />;
@@ -98,7 +125,8 @@ type BlockSegment =
   | { type: "math-block"; content: string }
   | { type: "heading"; level: 2 | 3; text: string }
   | { type: "bullet"; items: InlineToken[][] }
-  | { type: "numbered"; items: InlineToken[][] }
+  | { type: "mixed-list"; items: { prefix: string; tokens: InlineToken[] }[] }
+  | { type: "flow-process"; steps: string[] }
   | { type: "divider" }
   | { type: "callout"; kind: "note" | "formula" | "key" | "warn"; title: string; tokens: InlineToken[] };
 
@@ -119,6 +147,44 @@ function parseBlocks(raw: string): BlockSegment[] {
     if (/^---+$/.test(trimmed)) {
       blocks.push({ type: "divider" });
       i++;
+      continue;
+    }
+
+    // Callout check: matches either `> [!KEY]` or `[!KEY]` (with or without brackets/spaces/quotes)
+    const calloutHeader = trimmed.match(/^(?:>\s*)?\[!(NOTE|FORMULA|KEY|WARN|WARNING)\]/i);
+    if (calloutHeader) {
+      const kind = calloutHeader[1].toLowerCase() as "note" | "formula" | "key" | "warn";
+      
+      // Accumulate callout body text
+      let bodyLines: string[] = [];
+      const restOfLine = trimmed.replace(/^(?:>\s*)?\[!(NOTE|FORMULA|KEY|WARN|WARNING)\]/i, "").trim();
+      if (restOfLine) {
+        bodyLines.push(restOfLine);
+      }
+      
+      i++;
+      // Gather lines until we hit another distinct block boundary
+      while (i < lines.length) {
+        const nextLine = lines[i];
+        const nextTrimmed = nextLine.trim();
+        
+        if (nextTrimmed === "" || 
+            /^(?:>\s*)?\[!(NOTE|FORMULA|KEY|WARN|WARNING)\]/i.test(nextTrimmed) || 
+            /^---+$/.test(nextTrimmed) ||
+            /^(Role|Step|Phase|Scenario|Section)\s+\d+:/i.test(nextTrimmed)) {
+          break;
+        }
+        
+        bodyLines.push(nextLine.replace(/^>\s?/, ""));
+        i++;
+      }
+      
+      blocks.push({
+        type: "callout",
+        kind: kind === "warning" ? "warn" : kind,
+        title: kind.toUpperCase(),
+        tokens: parseInlineTokens(bodyLines.join(" ").trim()),
+      });
       continue;
     }
 
@@ -159,24 +225,18 @@ function parseBlocks(raw: string): BlockSegment[] {
       continue;
     }
 
-    // Callout  > [!TYPE]
-    const calloutMatch = trimmed.match(/^>\s*\[!(NOTE|FORMULA|KEY|WARN|WARNING)\]\s*(.*)/i);
-    if (calloutMatch) {
-      const kindMap: Record<string, "note" | "formula" | "key" | "warn"> = {
-        NOTE: "note", FORMULA: "formula", KEY: "key", WARN: "warn", WARNING: "warn",
-      };
-      let body = calloutMatch[2];
+    // Role / Step / Phase headings (e.g. "Role 1: ...")
+    const roleHeading = trimmed.match(/^(Role|Step|Phase|Scenario|Section)\s+\d+:\s*(.*)/i);
+    if (roleHeading && trimmed.length < 90) {
+      blocks.push({ type: "heading", level: 3, text: trimmed });
       i++;
-      while (i < lines.length && (lines[i].startsWith("> ") || lines[i].startsWith(">"))) {
-        body += "\n" + lines[i].replace(/^>\s?/, "");
-        i++;
-      }
-      blocks.push({
-        type: "callout",
-        kind: kindMap[calloutMatch[1].toUpperCase()],
-        title: calloutMatch[1].toUpperCase(),
-        tokens: parseInlineTokens(body.trim()),
-      });
+      continue;
+    }
+
+    // Short bold lines as subheadings (e.g. "**Fabrication Flow:**")
+    if (trimmed.startsWith("**") && trimmed.endsWith("**") && trimmed.length < 60) {
+      blocks.push({ type: "heading", level: 3, text: trimmed.slice(2, -2).replace(/:$/, "") });
+      i++;
       continue;
     }
 
@@ -191,18 +251,35 @@ function parseBlocks(raw: string): BlockSegment[] {
       continue;
     }
 
-    // Numbered list  1. 2. etc.
-    if (/^\d+\.\s/.test(trimmed)) {
-      const items: InlineToken[][] = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
-        items.push(parseInlineTokens(lines[i].trim().replace(/^\d+\.\s/, "")));
+    // Numbered list (digits or letters, e.g. "1. ..." or "A. ...")
+    if (/^(?:\d+|[A-Za-z])\.\s/.test(trimmed)) {
+      const items: { prefix: string; tokens: InlineToken[] }[] = [];
+      while (i < lines.length && /^(?:\d+|[A-Za-z])\.\s/.test(lines[i].trim())) {
+        const itemTrimmed = lines[i].trim();
+        const prefixMatch = itemTrimmed.match(/^([^\s]+)\s+(.*)/);
+        if (prefixMatch) {
+          items.push({
+            prefix: prefixMatch[1],
+            tokens: parseInlineTokens(prefixMatch[2])
+          });
+        }
         i++;
       }
-      blocks.push({ type: "numbered", items });
+      blocks.push({ type: "mixed-list", items });
       continue;
     }
 
-    // Regular paragraph  — all inline elements stay IN the same <p>
+    // Flow process line (e.g. "Silicon Wafer→Oxidation→Photolithography→...")
+    if (trimmed.includes("→") || trimmed.includes("->")) {
+      const steps = trimmed.split(/\s*(?:→|->)\s*/).filter(Boolean);
+      if (steps.length > 1) {
+        blocks.push({ type: "flow-process", steps });
+        i++;
+        continue;
+      }
+    }
+
+    // Regular paragraph
     blocks.push({ type: "paragraph", tokens: parseInlineTokens(trimmed) });
     i++;
   }
@@ -210,7 +287,7 @@ function parseBlocks(raw: string): BlockSegment[] {
   return blocks;
 }
 
-/* ─── RichContent Renderer ─── */
+/* ─── RichContent Component ─── */
 interface RichContentProps {
   content: string;
 }
@@ -219,7 +296,7 @@ export function RichContent({ content }: RichContentProps) {
   const blocks = parseBlocks(content);
 
   return (
-    <div className="space-y-2.5 rich-content">
+    <div className="space-y-3.5 rich-content">
       {blocks.map((block, i) => {
         switch (block.type) {
 
@@ -228,11 +305,12 @@ export function RichContent({ content }: RichContentProps) {
 
           case "heading":
             return block.level === 2 ? (
-              <h2 key={i} className="text-sm font-black uppercase tracking-widest text-cyan-400 mt-5 mb-2 pb-1 border-b border-cyan-500/20">
+              <h2 key={i} className="text-[13px] font-black uppercase tracking-wider text-cyan-400 mt-6 mb-2 pb-1 border-b border-cyan-500/20">
                 {block.text}
               </h2>
             ) : (
-              <h3 key={i} className="text-xs font-black uppercase tracking-wider text-purple-400 mt-4 mb-1">
+              <h3 key={i} className="text-xs font-black uppercase tracking-wider text-purple-400 mt-5 mb-1.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
                 {block.text}
               </h3>
             );
@@ -259,16 +337,36 @@ export function RichContent({ content }: RichContentProps) {
               </ul>
             );
 
-          case "numbered":
+          case "mixed-list":
             return (
-              <ol key={i} className="space-y-2 ml-1">
-                {block.items.map((itemTokens, j) => (
+              <ul key={i} className="space-y-2.5 ml-1 my-3.5">
+                {block.items.map((item, j) => (
                   <li key={j} className="flex items-start gap-2.5 text-sm leading-relaxed text-slate-300">
-                    <span className="text-cyan-500 mt-0.5 flex-shrink-0 font-bold w-4 text-right">{j + 1}.</span>
-                    <span>{renderInline(itemTokens)}</span>
+                    <span className="text-cyan-400 font-extrabold flex-shrink-0 min-w-[20px] bg-cyan-950/40 border border-cyan-500/25 px-1.5 py-0.5 rounded text-[10px] text-center shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+                      {item.prefix}
+                    </span>
+                    <span className="mt-0.5">{renderInline(item.tokens)}</span>
                   </li>
                 ))}
-              </ol>
+              </ul>
+            );
+
+          case "flow-process":
+            return (
+              <div key={i} className="my-5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-cyan-500/10">
+                <div className="flex items-center gap-3 min-w-max p-1.5">
+                  {block.steps.map((step, j) => (
+                    <React.Fragment key={j}>
+                      <div className="px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-cyan-500/20 text-cyan-300 font-black tracking-wide text-[11px] shadow-[0_0_15px_rgba(6,182,212,0.06)] backdrop-blur-sm hover:border-cyan-500/40 transition-colors">
+                        {step}
+                      </div>
+                      {j < block.steps.length - 1 && (
+                        <span className="text-cyan-500/40 font-bold text-xs animate-pulse">➔</span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
             );
 
           case "callout": {
@@ -280,8 +378,8 @@ export function RichContent({ content }: RichContentProps) {
             }[block.kind];
 
             return (
-              <div key={i} className={`rounded-xl border ${calloutStyles.border} ${calloutStyles.bg} px-4 py-3 my-2`}>
-                <div className={`text-[10px] font-black uppercase tracking-widest ${calloutStyles.labelColor} mb-1.5 flex items-center gap-1.5`}>
+              <div key={i} className={`rounded-xl border ${calloutStyles.border} ${calloutStyles.bg} px-4.5 py-3.5 my-4.5 backdrop-blur-sm shadow-[0_0_20px_rgba(255,255,255,0.01)]`}>
+                <div className={`text-[10px] font-black uppercase tracking-widest ${calloutStyles.labelColor} mb-2 flex items-center gap-2 border-b border-white/5 pb-1`}>
                   <span>{calloutStyles.icon}</span>
                   {calloutStyles.label}
                 </div>
