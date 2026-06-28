@@ -436,7 +436,7 @@ function KnowledgeGraphSVG({
 /* ─── Main Interface ─── */
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "graph" | "planner">("dashboard");
-  const [chatMode, setChatMode] = useState<"queue" | "direct">("queue");
+  const [chatMode, setChatMode] = useState<"search" | "queue" | "direct">("search");
   const [sessionId] = useState(() => "session_" + Math.random().toString(36).substring(2, 9));
   const [selectedNodeId, setSelectedNodeId] = useState<string>("semi");
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
@@ -533,7 +533,7 @@ export default function Home() {
     if (chatMode === "direct") {
       // Direct Link mode: open ChatGPT pre-filled in their native browser!
       const encodedPrompt = encodeURIComponent(trimmed);
-      const chatgptUrl = `https://chatgpt.com/?q=${encodedPrompt}`;
+      const chatgptUrl = "https://chatgpt.com/?q=" + encodedPrompt;
       
       // Open in a new tab
       window.open(chatgptUrl, "_blank");
@@ -544,12 +544,90 @@ export default function Home() {
         {
           id: (Date.now() + 1).toString(),
           role: "ai",
-          content: `*Prompt pre-filled! Opened ChatGPT in a new tab on your native browser/device.* \n\nDirect Link: [chatgpt.com](${chatgptUrl})`,
+          content: "*Prompt pre-filled! Opened ChatGPT in a new tab on your native browser/device.* \n\nDirect Link: [chatgpt.com](" + chatgptUrl + ")",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           provider: "Direct Redirect (Native)",
           latency: "0.1s",
         }
       ]);
+      return;
+    }
+
+    if (chatMode === "search") {
+      // Cloud Web-Search mode: Query /api/chat with DuckDuckGo web search in backend
+      setIsTyping(true);
+      const tempAiId = (Date.now() + 1).toString();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: tempAiId,
+          role: "ai",
+          content: "*Searching the web and consulting Socratic Tutor...*",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          provider: "Llama 3.1 (Cloud Web-Search)",
+          latency: "Pending...",
+        },
+      ]);
+
+      let resolved = false;
+
+      const updateAiResponse = (content: string, latency: string, provider: string) => {
+        if (resolved) return;
+        resolved = true;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempAiId
+              ? { ...msg, content, latency, provider, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }
+              : msg
+          )
+        );
+        setIsTyping(false);
+      };
+
+      const useFallback = (msgPrefix = "") => {
+        const fallbackResponse = getSocraticResponse(trimmed);
+        updateAiResponse(
+          msgPrefix ? msgPrefix + "\n\n" + fallbackResponse : fallbackResponse,
+          "1.8s (Local Fallback)",
+          "Offline Socratic Engine"
+        );
+      };
+
+      try {
+        // Gather history
+        const history = messages
+          .slice(-8)
+          .map((m) => ({
+            role: m.role === "user" ? "user" : "assistant",
+            content: m.content
+          }));
+
+        history.push({ role: "user", content: trimmed });
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ messages: history }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Cloud search API error");
+        }
+
+        const resData = await response.json();
+        if (resData.error) {
+          throw new Error(resData.error);
+        }
+
+        updateAiResponse(resData.response, resData.latency, "Llama 3.1 (NVIDIA Cloud)");
+
+      } catch (err) {
+        console.warn("Cloud Web-Search failed:", err.message);
+        useFallback();
+      }
       return;
     }
 
@@ -590,7 +668,7 @@ export default function Home() {
     const useFallback = (msgPrefix = "") => {
       const fallbackResponse = getSocraticResponse(trimmed);
       updateAiResponse(
-        msgPrefix ? `${msgPrefix}\n\n${fallbackResponse}` : fallbackResponse,
+        msgPrefix ? msgPrefix + "\n\n" + fallbackResponse : fallbackResponse,
         "1.8s (Local Fallback)",
         "Offline Socratic Engine"
       );
@@ -598,22 +676,21 @@ export default function Home() {
 
     try {
       // Explain-first Socratic system prompt with Session ID embedded!
-      const systemPrompt = `SESSION_ID: ${sessionId}
-
-You are the Socratic AI Tutor for UGC NET Electronics & Communication.
-Your goal is to explain and teach concepts deeply, ensuring the student thoroughly understands the topics.
-Follow these rules to deliver a premium educational experience:
-1. EXPLAIN AND TEACH FIRST: When a student asks a question or wants to learn a topic, provide a comprehensive, detailed, and clear explanation of the topic. Do not just reply with another question or short statement.
-2. USE REAL-WORLD ANALOGIES: Introduce the topic with an intuitive, real-world analogy to help the student visualize the concept.
-3. DETAILED STEP-BY-STEP MATHEMATICS: Break down all mathematical equations, derivations, and formulas step-by-step.
-   - Use double-dollars $$... $$ for block math equations.
-   - Use single-dollars $... $ for inline math.
-   - Ensure you explain what each variable represents and outline boundary conditions.
-4. INCORPORATE RICH HIGHLIGHT BLOCKS:
-   - Use "> [!KEY] key takeaway" for essential insights.
-   - Use "> [!FORMULA] formula" for key mathematical equations.
-   - Use "> [!NOTE] note" for background information or exam tips.
-5. SOCRATIC WRAP-UP: At the very end of your detailed explanation, ask one or two high-quality guided questions (Checkpoint) to verify the student's understanding and prompt them to think critically about the next logical step.`;
+      const systemPrompt = "SESSION_ID: " + sessionId + "\n\n" +
+"You are the Socratic AI Tutor for UGC NET Electronics & Communication.\n" +
+"Your goal is to explain and teach concepts deeply, ensuring the student thoroughly understands the topics.\n" +
+"Follow these rules to deliver a premium educational experience:\n" +
+"1. EXPLAIN AND TEACH FIRST: When a student asks a question or wants to learn a topic, provide a comprehensive, detailed, and clear explanation of the topic. Do not just reply with another question or short statement.\n" +
+"2. USE REAL-WORLD ANALOGIES: Introduce the topic with an intuitive, real-world analogy to help the student visualize the concept.\n" +
+"3. DETAILED STEP-BY-STEP MATHEMATICS: Break down all mathematical equations, derivations, and formulas step-by-step.\n" +
+"   - Use double-dollars $$...$$ for block math equations.\n" +
+"   - Use single-dollars $...$ for inline math.\n" +
+"   - Ensure you explain what each variable represents and outline boundary conditions.\n" +
+"4. INCORPORATE RICH HIGHLIGHT BLOCKS:\n" +
+"   - Use \"> [!KEY] key takeaway\" for essential insights.\n" +
+"   - Use \"> [!FORMULA] formula\" for key mathematical equations.\n" +
+"   - Use \"> [!NOTE] note\" for background information or exam tips.\n" +
+"5. SOCRATIC WRAP-UP: At the very end of your detailed explanation, ask one or two high-quality guided questions (Checkpoint) to verify the student's understanding and prompt them to think critically about the next logical step.";
 
       // 1. Insert task into Supabase queue
       const { data, error } = await supabase
@@ -658,7 +735,7 @@ Follow these rules to deliver a premium educational experience:
             updateAiResponse(pollData.response, elapsed, "ChatGPT Browser (Real)");
           } else if (pollData.status === "FAILED") {
             clearInterval(interval);
-            useFallback(`[Browser Agent error: ${pollData.error}]`);
+            useFallback("[Browser Agent error: " + pollData.error + "]");
           }
         }
 
@@ -1071,14 +1148,25 @@ Follow these rules to deliver a premium educational experience:
                   </svg>
                 </button>
               </div>
-              <div className="flex items-center justify-center gap-4 mt-2.5 text-[10px] font-mono text-slate-400">
+                            <div className="flex items-center justify-center flex-wrap gap-2.5 mt-2.5 text-[10px] font-mono text-slate-400">
                 <span className="text-slate-600">Tutor Mode:</span>
+                <button
+                  onClick={() => setChatMode("search")}
+                  className={`px-2.5 py-0.5 rounded border transition-all ${
+                    chatMode === "search"
+                      ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-400 font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-400"
+                  }`}
+                >
+                  ☁️ Cloud Web-Search
+                </button>
+                <span className="text-slate-700">•</span>
                 <button
                   onClick={() => setChatMode("queue")}
                   className={`px-2.5 py-0.5 rounded border transition-all ${
                     chatMode === "queue"
                       ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-400 font-bold"
-                      : "border-transparent text-slate-600 hover:text-slate-400"
+                      : "border-transparent text-slate-500 hover:text-slate-400"
                   }`}
                 >
                   🤖 Laptop Agent Queue
@@ -1089,7 +1177,7 @@ Follow these rules to deliver a premium educational experience:
                   className={`px-2.5 py-0.5 rounded border transition-all ${
                     chatMode === "direct"
                       ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-400 font-bold"
-                      : "border-transparent text-slate-600 hover:text-slate-400"
+                      : "border-transparent text-slate-500 hover:text-slate-400"
                   }`}
                 >
                   📱 Direct Native Browser
