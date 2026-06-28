@@ -1,14 +1,13 @@
+const path = require("path");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./apps/web/src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./apps/web/src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./apps/web/src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "../../packages/ui/**/*.{js,ts,jsx,tsx,mdx}",
-    "./packages/ui/**/*.{js,ts,jsx,tsx,mdx}"
+    // Absolute paths using __dirname — works on both local and Vercel regardless of cwd
+    path.resolve(__dirname, "src/pages/**/*.{js,ts,jsx,tsx,mdx}"),
+    path.resolve(__dirname, "src/components/**/*.{js,ts,jsx,tsx,mdx}"),
+    path.resolve(__dirname, "src/app/**/*.{js,ts,jsx,tsx,mdx}"),
+    path.resolve(__dirname, "../../packages/ui/**/*.{js,ts,jsx,tsx,mdx}"),
   ],
   theme: {
     extend: {
