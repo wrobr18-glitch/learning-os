@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { RichContent } from "../components/RichContent";
 import { getSocraticResponse } from "../lib/socraticEngine";
+import { supabase } from "database";
 
 /* ─── Types ─── */
 interface StudyTask {
@@ -465,23 +466,105 @@ export default function Home() {
     if (!customPrompt) setInputValue("");
     setIsTyping(true);
 
-    // Topic-aware Socratic AI response engine
-    setTimeout(() => {
-      const response = getSocraticResponse(trimmed);
+    const tempAiId = (Date.now() + 1).toString();
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          content: response,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          provider: "ChatGPT Browser",
-          latency: "1.8s",
-        },
-      ]);
+    // Insert placeholder typing/loading block
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempAiId,
+        role: "ai",
+        content: "*Waiting for ChatGPT Browser Agent to process query...*",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        provider: "ChatGPT Browser (Queue)",
+        latency: "Pending...",
+      },
+    ]);
+
+    let resolved = false;
+
+    // Helper to replace the pending AI message with actual response
+    const updateAiResponse = (content: string, latency: string, provider: string) => {
+      if (resolved) return;
+      resolved = true;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempAiId
+            ? { ...msg, content, latency, provider, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }
+            : msg
+        )
+      );
       setIsTyping(false);
-    }, 1800);
+    };
+
+    // Fallback logic
+    const useFallback = (msgPrefix = "") => {
+      const fallbackResponse = getSocraticResponse(trimmed);
+      updateAiResponse(
+        msgPrefix ? `${msgPrefix}\n\n${fallbackResponse}` : fallbackResponse,
+        "1.8s (Local Fallback)",
+        "Offline Socratic Engine"
+      );
+    };
+
+    try {
+      // 1. Insert task into Supabase queue
+      const { data, error } = await supabase
+        .from("browser_tasks")
+        .insert({
+          provider: "chatgpt",
+          prompt: trimmed,
+          system_prompt: "You are the Socratic AI Tutor for UGC NET Electronics. Guide the student using the Socratic method. Do not give the direct answer immediately. Help them find the solution step by step. Use clean LaTeX formulas inside $$...$$ for blocks and $...$ for inline equations. Include key highlight boxes: > [!KEY], > [!FORMULA], or > [!NOTE] where appropriate. Be extremely detailed and educational.",
+          status: "PENDING",
+        })
+        .select();
+
+      if (error || !data || data.length === 0) {
+        throw new Error(error?.message || "Failed to enqueue task");
+      }
+
+      const task = data[0];
+      const startTime = Date.now();
+
+      // 2. Poll the queue table
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max wait (ChatGPT normally takes 5-15s)
+      const interval = setInterval(async () => {
+        attempts++;
+
+        const { data: pollData, error: pollErr } = await supabase
+          .from("browser_tasks")
+          .select("*")
+          .eq("id", task.id)
+          .single();
+
+        if (pollErr) {
+          clearInterval(interval);
+          useFallback("[Database error while polling queue]");
+          return;
+        }
+
+        if (pollData) {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+          if (pollData.status === "COMPLETED") {
+            clearInterval(interval);
+            updateAiResponse(pollData.response, elapsed, "ChatGPT Browser (Real)");
+          } else if (pollData.status === "FAILED") {
+            clearInterval(interval);
+            useFallback(`[Browser Agent error: ${pollData.error}]`);
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          useFallback("[Timeout waiting for Browser Agent]");
+        }
+      }, 1000);
+
+    } catch (err: any) {
+      console.warn("Socratic Tutor Queue failed to submit task. Falling back.", err.message);
+      useFallback();
+    }
   };
 
   const stats = [
