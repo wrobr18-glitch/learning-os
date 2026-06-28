@@ -347,3 +347,15 @@
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
 }
+
+/* Edge flow animation for active pathways in graph */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.animate-dash-flow {
+  stroke-dasharray: 8, 8;
+  animation: dash-flow 1.5s linear infinite;
+}
