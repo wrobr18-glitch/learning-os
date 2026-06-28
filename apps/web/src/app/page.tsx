@@ -641,7 +641,7 @@ export default function Home() {
     <div className="min-h-screen flex bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/20">
       
       {/* ─── SIDEBAR NAVIGATION ─── */}
-      <aside className={`${sidebarOpen ? "w-64" : "w-20"} flex-shrink-0 flex flex-col glass-panel border-r border-white/5 transition-all duration-300 relative sticky top-0 h-screen z-20 bg-slate-950/80`}>
+      <aside className={`${sidebarOpen ? "md:w-64" : "md:w-20"} w-20 flex-shrink-0 flex-col glass-panel border-r border-white/5 transition-all duration-300 relative sticky top-0 h-screen z-20 bg-slate-950/80 hidden md:flex`}>
         
         {/* Brand Logo */}
         <div className={`p-5 flex items-center ${sidebarOpen ? "gap-3" : "justify-center"} border-b border-white/5`}>
@@ -751,7 +751,7 @@ export default function Home() {
 
         {/* ─── TAB CONTENT: DASHBOARD ─── */}
         {activeTab === "dashboard" && (
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 animate-fade-in no-scrollbar">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 animate-fade-in no-scrollbar pb-mobile-safe">
 
             {/* Stats Summary Panel */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -788,7 +788,7 @@ export default function Home() {
                     {STUDY_TASKS.map((task, i) => (
                       <div
                         key={task.id}
-                        className="group flex items-center justify-between p-4 rounded-xl border border-white/5 bg-slate-950/20 hover:border-cyan-500/20 hover:bg-cyan-500/5 transition-all duration-200"
+                        className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-white/5 bg-slate-950/20 hover:border-cyan-500/20 hover:bg-cyan-500/5 transition-all duration-200 gap-4"
                       >
                         <div className="flex items-center gap-4 min-w-0">
                           {/* Radial Progress indicator */}
@@ -811,8 +811,8 @@ export default function Home() {
                           </div>
                         </div>
 
-                        <div className="text-right ml-4 flex-shrink-0">
-                          <div className="text-[10px] font-mono text-slate-500 mb-2">{task.duration}</div>
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto gap-3 sm:gap-2 flex-shrink-0 border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                          <div className="text-[10px] font-mono text-slate-500">{task.duration}</div>
                           <button
                             id={`task-btn-${task.id}`}
                             className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded bg-cyan-600 text-white shadow-lg shadow-cyan-950/40 hover:bg-cyan-500 hover:-translate-y-0.5 active:translate-y-0 transition-all"
@@ -920,7 +920,7 @@ export default function Home() {
           <div className="flex-1 flex flex-col overflow-hidden animate-fade-in">
             
             {/* Chat viewport messages log */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 no-scrollbar">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -1001,7 +1001,7 @@ export default function Home() {
             </div>
 
             {/* Chat write input block */}
-            <div className="p-4 border-t border-white/5 glass-panel bg-slate-950/60 backdrop-blur-md">
+            <div className="p-4 border-t border-white/5 glass-panel bg-slate-950/60 backdrop-blur-md pb-20 md:pb-4">
               <div className="flex gap-3 items-end max-w-4xl mx-auto">
                 <textarea
                   id="chat-input"
@@ -1040,7 +1040,7 @@ export default function Home() {
 
         {/* ─── TAB CONTENT: KNOWLEDGE FABRIC FULL GRAPH ─── */}
         {activeTab === "graph" && (
-          <div className="flex-1 p-6 overflow-y-auto animate-fade-in no-scrollbar">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto animate-fade-in no-scrollbar pb-mobile-safe">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Massive Full View Graph */}
@@ -1151,7 +1151,7 @@ export default function Home() {
 
         {/* ─── TAB CONTENT: STUDY PLANNER ─── */}
         {activeTab === "planner" && (
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 animate-fade-in no-scrollbar">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 animate-fade-in no-scrollbar pb-mobile-safe">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Weekly progress timeline */}
@@ -1251,6 +1251,34 @@ export default function Home() {
         )}
 
       </main>
+
+      {/* ─── MOBILE BOTTOM NAVIGATION ─── */}
+      <nav className="mobile-nav-bar md:hidden">
+        {[
+          { id: "dashboard", label: "Dashboard", icon: (
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" /></svg>
+          )},
+          { id: "chat", label: "Tutor", icon: (
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          )},
+          { id: "graph", label: "Fabric", icon: (
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+          )},
+          { id: "planner", label: "Planner", icon: (
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 7V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" /></svg>
+          )},
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id as any)}
+            className={`mobile-nav-btn ${activeTab === item.id ? "active" : ""}`}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
     </div>
   );
 }
