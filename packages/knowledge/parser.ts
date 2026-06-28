@@ -1,4 +1,4 @@
-import pdf from "pdf-parse";
+import pdf = require("pdf-parse");
 
 export interface PDFParsedResult {
   text: string;

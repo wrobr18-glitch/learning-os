@@ -441,6 +441,10 @@ export default function Home() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Dynamic Knowledge Graph State
+  const [nodes, setNodes] = useState<ConceptNode[]>(CONCEPT_NODES);
+  const [edges, setEdges] = useState<ConceptEdge[]>(CONCEPT_EDGES);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -448,7 +452,66 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const activeNode = CONCEPT_NODES.find((n) => n.id === selectedNodeId) || CONCEPT_NODES[0];
+  // Load knowledge graph data dynamically from Neo4j & Supabase
+  useEffect(() => {
+    async function loadGraph() {
+      try {
+        const res = await fetch("/api/knowledge-graph");
+        const data = await res.json();
+        if (data.success && data.nodes && data.nodes.length > 0) {
+          const enrichedNodes = data.nodes.map((n: any) => {
+            let color = "#64748b"; // Locked default
+            let accent = "slate";
+            let state: "completed" | "unlocked" | "revision" | "locked" = "locked";
+            
+            if (n.mastery >= 75) {
+              color = "#10b981"; // Emerald
+              accent = "emerald";
+              state = "completed";
+            } else if (n.mastery >= 40) {
+              color = "#fbbf24"; // Amber
+              accent = "amber";
+              state = "unlocked";
+            } else if (n.mastery > 0) {
+              color = "#ec4899"; // Pink
+              accent = "pink";
+              state = "revision";
+            } else if (n.id === "electronics.semiconductor.physics") {
+              // Unlock the root semiconductor node by default
+              color = "#06b6d4"; // Cyan
+              accent = "cyan";
+              state = "unlocked";
+            }
+
+            return {
+              id: n.id,
+              label: n.label,
+              mastery: n.mastery,
+              x: n.x,
+              y: n.y,
+              color,
+              accent,
+              size: n.id === "electronics.semiconductor.physics" ? 30 : 26,
+              state,
+            };
+          });
+
+          setNodes(enrichedNodes);
+          setEdges(data.edges);
+          // Auto-select the root semiconductor physics node if present
+          if (enrichedNodes.some((n: any) => n.id === "electronics.semiconductor.physics")) {
+            setSelectedNodeId("electronics.semiconductor.physics");
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load dynamic knowledge graph:", err);
+      }
+    }
+    loadGraph();
+  }, []);
+
+  const getNode = (id: string) => nodes.find((n) => n.id === id);
+  const activeNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
 
   const sendMessage = async (customPrompt?: string) => {
     const promptToSend = customPrompt || inputValue;
@@ -795,8 +858,8 @@ export default function Home() {
                   </div>
 
                   <KnowledgeGraphSVG
-                    nodes={CONCEPT_NODES}
-                    edges={CONCEPT_EDGES}
+                    nodes={nodes}
+                    edges={edges}
                     selectedId={selectedNodeId}
                     onSelectNode={setSelectedNodeId}
                   />
@@ -988,8 +1051,8 @@ export default function Home() {
                 </div>
                 
                 <KnowledgeGraphSVG
-                  nodes={CONCEPT_NODES}
-                  edges={CONCEPT_EDGES}
+                  nodes={nodes}
+                  edges={edges}
                   selectedId={selectedNodeId}
                   onSelectNode={setSelectedNodeId}
                 />
@@ -1021,7 +1084,7 @@ export default function Home() {
                     <div>
                       <h4 className="text-[9px] uppercase font-black text-slate-500 tracking-wider">Prerequisites</h4>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {CONCEPT_EDGES.filter(e => e.to === activeNode.id).map(e => {
+                        {edges.filter(e => e.to === activeNode.id).map(e => {
                           const name = getNode(e.from)?.label || e.from;
                           return (
                             <span key={e.from} className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-white/5">
@@ -1029,7 +1092,7 @@ export default function Home() {
                             </span>
                           );
                         })}
-                        {CONCEPT_EDGES.filter(e => e.to === activeNode.id).length === 0 && (
+                        {edges.filter(e => e.to === activeNode.id).length === 0 && (
                           <span className="text-[10px] text-slate-600 font-mono">None (Base concept)</span>
                         )}
                       </div>
@@ -1063,7 +1126,7 @@ export default function Home() {
                 <div className="glass-panel rounded-2xl p-5 border border-white/5">
                   <h3 className="font-extrabold text-[10px] uppercase text-slate-500 tracking-wider mb-3">Syllabus Index Legend</h3>
                   <div className="space-y-2.5">
-                    {CONCEPT_NODES.map((node) => (
+                    {nodes.map((node) => (
                       <div key={node.id} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ background: node.color }} />
