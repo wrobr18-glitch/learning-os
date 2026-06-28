@@ -90,6 +90,8 @@ const CONCEPT_EDGES: ConceptEdge[] = [
   { from: "mosfet", to: "opamp" },
 ];
 
+const getNode = (id: string) => CONCEPT_NODES.find((n) => n.id === id);
+
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: "1",
