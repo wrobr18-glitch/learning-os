@@ -531,15 +531,15 @@ export default function Home() {
 
     const tempAiId = (Date.now() + 1).toString();
 
-    // Insert placeholder typing/loading block
+    // Insert placeholder cloud consulting message block
     setMessages((prev) => [
       ...prev,
       {
         id: tempAiId,
         role: "ai",
-        content: "*Waiting for ChatGPT Browser Agent to process query...*",
+        content: "*Consulting Socratic Cloud Tutor...*",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        provider: "ChatGPT Browser (Queue)",
+        provider: "Llama 3.3 (Cloud Socratic)",
         latency: "Pending...",
       },
     ]);
@@ -571,61 +571,39 @@ export default function Home() {
     };
 
     try {
-      // 1. Insert task into Supabase queue
-      const { data, error } = await supabase
-        .from("browser_tasks")
-        .insert({
-          provider: "chatgpt",
-          prompt: trimmed,
-          system_prompt: "You are the Socratic AI Tutor for UGC NET Electronics. Guide the student using the Socratic method. Do not give the direct answer immediately. Help them find the solution step by step. Use clean LaTeX formulas inside $$...$$ for blocks and $...$ for inline equations. Include key highlight boxes: > [!KEY], > [!FORMULA], or > [!NOTE] where appropriate. Be extremely detailed and educational.",
-          status: "PENDING",
-        })
-        .select();
+      // Gather conversation history (last 8 messages for context preservation)
+      const history = messages
+        .slice(-8)
+        .map((m) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content
+        }));
 
-      if (error || !data || data.length === 0) {
-        throw new Error(error?.message || "Failed to enqueue task");
+      // Append active user query
+      history.push({ role: "user", content: trimmed });
+
+      // Call our cloud serverless endpoint
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages: history }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Cloud API responded with error");
       }
 
-      const task = data[0];
-      const startTime = Date.now();
+      const resData = await response.json();
+      if (resData.error) {
+        throw new Error(resData.error);
+      }
 
-      // 2. Poll the queue table
-      let attempts = 0;
-      const maxAttempts = 60; // 60 seconds max wait (ChatGPT normally takes 5-15s)
-      const interval = setInterval(async () => {
-        attempts++;
+      updateAiResponse(resData.response, resData.latency, "Llama 3.3 (Cloud Socratic)");
 
-        const { data: pollData, error: pollErr } = await supabase
-          .from("browser_tasks")
-          .select("*")
-          .eq("id", task.id)
-          .single();
-
-        if (pollErr) {
-          clearInterval(interval);
-          useFallback("[Database error while polling queue]");
-          return;
-        }
-
-        if (pollData) {
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
-          if (pollData.status === "COMPLETED") {
-            clearInterval(interval);
-            updateAiResponse(pollData.response, elapsed, "ChatGPT Browser (Real)");
-          } else if (pollData.status === "FAILED") {
-            clearInterval(interval);
-            useFallback(`[Browser Agent error: ${pollData.error}]`);
-          }
-        }
-
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          useFallback("[Timeout waiting for Browser Agent]");
-        }
-      }, 1000);
-
-    } catch (err: any) {
-      console.warn("Socratic Tutor Queue failed to submit task. Falling back.", err.message);
+    } catch (err) {
+      console.warn("Cloud chat failed. Falling back to offline socratic engine:", err.message);
       useFallback();
     }
   };
