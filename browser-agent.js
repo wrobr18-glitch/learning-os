@@ -62,8 +62,10 @@ async function processTask(task) {
   console.log(`🤖 Starting task ${task.id} for ${task.provider.toUpperCase()}...`);
 
   // Launch browser context using saved persistent profile
+  // BROWSER_HEADLESS defaults to false for bypass compatibility
+  const isHeadless = process.env.BROWSER_HEADLESS === "true";
   const context = await chromium.launchPersistentContext(profileDir, {
-    headless: true, // Invisible in background
+    headless: isHeadless,
     viewport: { width: 1280, height: 800 },
     args: [
       "--no-sandbox",
@@ -72,14 +74,17 @@ async function processTask(task) {
     ]
   });
 
+  let page;
   try {
-    const page = await context.newPage();
+    page = await context.newPage();
     await page.goto(config.url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
     // 1. Resolve prompt input
     const inputSelector = await findSelector(page, config.input);
     if (!inputSelector) {
-      throw new Error(`Input field not found. Please log in first by running: node browser-login.js ${task.provider}`);
+      // Capture screenshot for debugging before throwing error
+      await page.screenshot({ path: path.join(__dirname, "error-screenshot.png") });
+      throw new Error(`Input field not found. Screenshot saved to error-screenshot.png. Please log in first by running: node browser-login.js ${task.provider}`);
     }
 
     const fullPrompt = task.system_prompt 
@@ -137,6 +142,13 @@ async function processTask(task) {
 
   } catch (err) {
     console.error(`❌ Task ${task.id} failed:`, err.message);
+    try {
+      if (page) {
+        await page.screenshot({ path: path.join(__dirname, "error-screenshot.png") });
+      }
+    } catch (ssErr) {
+      console.warn("Could not save diagnostic screenshot:", ssErr.message);
+    }
     await supabase
       .from("browser_tasks")
       .update({ status: "FAILED", error: err.message, updated_at: new Date() })
