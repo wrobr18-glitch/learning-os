@@ -31,15 +31,18 @@ const SELECTORS = {
   },
   chatgpt: {
     input: [
+      'div[contenteditable="true"]',
+      '[placeholder*="Ask anything"]',
       'textarea#prompt-textarea',
-      'textarea[placeholder*="Message ChatGPT"]',
-      'textarea[placeholder*="Ask me anything"]'
+      'textarea[placeholder*="Ask anything"]',
+      'textarea[placeholder*="Message ChatGPT"]'
     ],
     sendBtn: [
       'button[data-testid="send-button"]',
       'button.send-button',
       'button[aria-label="Send prompt"]',
-      'button[type="submit"]'
+      'button[type="submit"]',
+      'button:has(svg)'
     ],
     responses: [
       'div[data-message-author-role="assistant"]',
