@@ -464,128 +464,293 @@ export default function Home() {
     if (!customPrompt) setInputValue("");
     setIsTyping(true);
 
-    // Simulate Socratic AI pipeline response
+    // Topic-aware Socratic AI response engine
     setTimeout(() => {
-      const userCount = messages.filter(m => m.role === "user").length;
+      const lowerPrompt = trimmed.toLowerCase();
 
-      const answers = [
-        // Response 1: Quadratic relationship + definition of gm
-        `## Good Start — Analysing the Relationship
+      /* ── Topic Detection ── */
+      const isBJT = /bjt|bipolar|junction transistor|hfe|beta|collector|emitter|base current|npn|pnp|h.param|common.emitter|common.base|common.collector/.test(lowerPrompt);
+      const isMOSFET = /mosfet|transconductance|gm|g_m|drain|gate|threshold|vgs|vds|vth|pinch.off|saturation|overdrive/.test(lowerPrompt);
+      const isDiode = /diode|p.n junction|forward bias|reverse bias|depletion|diffusion current|drift current|built.in potential|barrier/.test(lowerPrompt);
+      const isOpAmp = /op.amp|operational amplifier|inverting|non.inverting|virtual ground|cmrr|slew rate|gain bandwidth|feedback/.test(lowerPrompt);
+      const isSemiconductor = /semiconductor|band gap|valence|conduction band|doping|donor|acceptor|intrinsic|fermi|carrier density|mobility/.test(lowerPrompt);
+      const isFET = /\bfet\b|field.effect|jfet|channel|pinch.off voltage|idss/.test(lowerPrompt);
 
-You are correct — the relationship is **quadratic**. The exponent 2 on $(V_{GS} - V_{th})$ tells us that $I_D$ grows as the **square** of the overdrive voltage.
+      let response: string;
+
+      if (isBJT) {
+        response = `## Bipolar Junction Transistor (BJT) — Socratic Session
+
+Good — let's work through BJT fundamentals systematically.
 
 > [!KEY]
-> **Overdrive voltage** is defined as $V_{OV} = V_{GS} - V_{th}$. This is the gate voltage beyond the threshold at which the MOSFET channel begins conducting.
+> A BJT is a **current-controlled** device. This is its most fundamental distinction from the MOSFET (which is voltage-controlled). The base current $I_B$ controls the collector current $I_C$.
 
 ---
 
-## Step 1 — Formal Definition of Transconductance
+## Device Structure
 
-**Transconductance** $g_m$ is defined as the **partial derivative** of drain current with respect to gate voltage, at constant $V_{DS}$:
+A BJT has three terminals — **Emitter (E)**, **Base (B)**, and **Collector (C)** — and two p-n junctions:
 
-$$g_m = \\left. \\frac{\\partial I_D}{\\partial V_{GS}} \\right|_{V_{DS} = \\text{const}}$$
+- **NPN**: p-type base sandwiched between n-type emitter and collector
+- **PNP**: n-type base sandwiched between p-type emitter and collector
 
-This physically means: *how much extra drain current flows when we increase the gate voltage by 1 Volt?*
+The emitter is **heavily doped**, the base is **lightly doped and thin**, and the collector is **moderately doped**.
 
 ---
 
-## Step 2 — Your Task
+## Active Region Bias Conditions
 
-Now differentiate the saturation current expression:
+For an NPN BJT in the **active (forward-active) region**:
+
+- Emitter-Base junction: **Forward biased** → $V_{BE} > 0$
+- Collector-Base junction: **Reverse biased** → $V_{CB} > 0$
+
+> [!FORMULA]
+> $$I_C = \\beta \\cdot I_B = \\alpha \\cdot I_E$$
+
+Where:
+- $\\beta = h_{FE}$ is the **DC current gain** (common-emitter, typically 50–300)
+- $\\alpha = \\frac{\\beta}{1+\\beta}$ is the **common-base current gain** (< 1, close to 1)
+
+---
+
+## KCL at the BJT Node
+
+From Kirchhoff's Current Law:
+
+$$I_E = I_B + I_C$$
+
+Substituting $I_C = \\beta I_B$:
+
+$$I_E = I_B + \\beta I_B = (1 + \\beta) I_B$$
+
+---
+
+## Your First Checkpoint
+
+The Ebers-Moll equation for collector current in the active region is:
+
+$$I_C = I_S \\left( e^{V_{BE}/V_T} - 1 \\right) \\approx I_S \\cdot e^{V_{BE}/V_T}$$
+
+where $V_T = \\frac{kT}{q} \\approx 26\\,\\text{mV}$ at room temperature.
+
+**Question:** If $V_{BE}$ increases by $60\\,\\text{mV}$, by what **factor** does $I_C$ increase? (Hint: use the exponential relationship.)`;
+
+      } else if (isMOSFET) {
+        response = `## MOSFET Analysis — Continuing Your Session
+
+> [!NOTE]
+> You're working on MOSFET characteristics. Let me pick up from the relevant concept.
+
+---
+
+## MOSFET Operating Regions Summary
+
+A MOSFET operates in three key regions:
+
+### 1. Cut-off (Sub-threshold)
+$$V_{GS} < V_{th} \quad \Rightarrow \quad I_D \approx 0$$
+
+### 2. Triode (Linear) Region
+When $V_{GS} > V_{th}$ and $V_{DS} < V_{GS} - V_{th}$:
+
+$$I_D = \\mu_n C_{ox} \\frac{W}{L} \\left[ (V_{GS} - V_{th}) V_{DS} - \\frac{V_{DS}^2}{2} \\right]$$
+
+### 3. Saturation Region
+When $V_{DS} \\geq V_{GS} - V_{th}$:
 
 $$I_D = \\frac{\\mu_n C_{ox}}{2} \\cdot \\frac{W}{L} \\cdot (V_{GS} - V_{th})^2$$
 
-with respect to $V_{GS}$.
-
-**What do you get?** Write out the result step by step.`,
-
-        // Response 2: Three forms + physical intuition
-        `## Excellent Derivation! ✓
-
-Your differentiation is correct. Taking $\\frac{\\partial I_D}{\\partial V_{GS}}$ of the saturation expression gives us the **first form** of transconductance:
-
 > [!FORMULA]
-> $$g_m = \\mu_n C_{ox} \\frac{W}{L} (V_{GS} - V_{th})$$
+> **Transconductance** in saturation: $g_m = \\mu_n C_{ox} \\frac{W}{L} (V_{GS} - V_{th}) = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D}$
 
 ---
 
-## The Three Equivalent Expressions for $g_m$
+**What specific aspect of MOSFET behaviour would you like to explore?** Derivations, numerical problems, small-signal model, or channel-length modulation?`;
 
-From the first form and the expression for $I_D$, we can derive two more equivalent forms. Study these carefully — UGC NET will test all three:
-
-### Form 1 — In terms of overdrive voltage $V_{OV}$
-$$g_m = \\mu_n C_{ox} \\frac{W}{L} V_{OV}$$
-
-### Form 2 — In terms of drain current $I_D$
-$$g_m = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D}$$
-
-*(Derived by substituting $I_D = \\frac{\\mu_n C_{ox} W}{2L} V_{OV}^2$ into Form 1)*
-
-### Form 3 — Ratio form
-$$g_m = \\frac{2 I_D}{V_{GS} - V_{th}} = \\frac{2 I_D}{V_{OV}}$$
-
----
-
-> [!NOTE]
-> **Important Insight:** In **Form 2**, $g_m \\propto \\sqrt{I_D}$, while in **Form 3**, $g_m \\propto I_D$. This apparent contradiction arises because $V_{OV}$ also changes with $I_D$. When you hold $V_{OV}$ fixed and vary $W/L$, you use Form 1. When you hold $W/L$ fixed and vary $I_D$, Form 2 is more natural.
-
----
-
-## Socratic Checkpoint
-
-If a designer **doubles** the width $W$ while keeping $I_D$ **constant** (by halving $V_{OV}$ accordingly), what happens to $g_m$? Use **Form 1** to reason this out.`,
-
-        // Response 3: Width scaling + pinch-off + deep physical intuition
-        `## Correct Physical Reasoning!
-
-You've identified the core tradeoff. Let's formalize it:
-
-### Scenario: Double $W$, Hold $I_D$ Constant
-
-If $I_D$ is fixed and $W$ doubles, then since $I_D = \\frac{\\mu_n C_{ox} W}{2L} V_{OV}^2$, the overdrive $V_{OV}$ must **decrease** to compensate. Using Form 1:
-
-$$g_m = \\mu_n C_{ox} \\frac{W}{L} V_{OV}$$
-
-Even though $V_{OV}$ drops, $W$ has doubled — and the product $W \\cdot V_{OV}$ still **increases** via Form 2:
-
-$$g_m = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D} \\quad \\Rightarrow \\quad g_m \\propto \\sqrt{W}$$
+      } else if (isDiode) {
+        response = `## p-n Junction Diode — Socratic Session
 
 > [!KEY]
-> **Doubling $W$ at constant $I_D$ increases $g_m$ by $\\sqrt{2}$ (≈ 41%).** This is a fundamental CMOS analog design technique called **device upsizing for gain improvement**.
+> The p-n junction is the **building block** of all semiconductor devices — BJTs, MOSFETs, solar cells, and LEDs. Master this and everything else becomes clearer.
 
 ---
 
-## The Channel Pinch-off Mechanism
+## Built-in Potential
 
-Now let's address **why saturation occurs**. When $V_{DS} > V_{GS} - V_{th} = V_{OV}$:
+When p and n regions are joined, carriers diffuse across the junction. This creates a **depletion region** with an internal electric field that opposes further diffusion. The resulting **built-in potential** is:
 
-- The channel potential at the drain end reaches $V_{GS} - V_{th}$
-- The inversion layer charge $Q_{inv}$ at the drain becomes zero (the channel "pinches off")
-- Despite the channel narrowing, current continues to flow by **drift of carriers** in the high-field depletion region near the drain
-- $I_D$ becomes **independent of $V_{DS}$** — this is the saturation plateau
+$$V_{bi} = \\frac{kT}{q} \\ln\\left(\\frac{N_A \\cdot N_D}{n_i^2}\\right) = V_T \\ln\\left(\\frac{N_A N_D}{n_i^2}\\right)$$
+
+where $n_i$ is the **intrinsic carrier concentration** and $V_T = 26\\,\\text{mV}$ at 300 K.
+
+---
+
+## Shockley Diode Equation
+
+The ideal diode current-voltage relationship:
+
+$$I_D = I_0 \\left(e^{V_D / \\eta V_T} - 1\\right)$$
+
+- $I_0$ = reverse saturation current (strongly temperature-dependent)
+- $\\eta$ = ideality factor (1 for diffusion-dominated, 2 for recombination-dominated)
+- $V_T = kT/q \\approx 26\\,\\text{mV}$ at 300 K
 
 > [!FORMULA]
-> $$I_{D,sat} = \\frac{\\mu_n C_{ox}}{2} \\cdot \\frac{W}{L} \\cdot V_{OV}^2 \\quad \\text{(independent of } V_{DS}\\text{)}$$
+> **Forward bias approximation** ($V_D \\gg V_T$): $I_D \\approx I_0 \\, e^{V_D/\\eta V_T}$
 
 ---
 
-## UGC NET Level MCQ Challenge
+## Checkpoint
 
-A MOSFET has $\\mu_n C_{ox} = 200\\,\\mu\\text{A/V}^2$, $W/L = 10$, and $V_{OV} = 0.5\\,\\text{V}$.
+If the temperature rises from 27°C to 57°C, how does $I_0$ change? (Hint: $I_0$ approximately **doubles for every 10°C** rise in temperature.) What does this imply for the diode's forward voltage $V_D$ at a fixed current?`;
 
-**Calculate:** (a) $I_D$ in saturation, (b) $g_m$ using Form 1, (c) verify using Form 3.
+      } else if (isOpAmp) {
+        response = `## Operational Amplifier — Socratic Session
 
-Work through these and share your answers — I'll check each step.`,
-      ];
+> [!KEY]
+> An **ideal op-amp** has: infinite open-loop gain $A_{OL} \\to \\infty$, infinite input impedance $Z_{in} \\to \\infty$, zero output impedance $Z_{out} = 0$, infinite bandwidth, and zero offset voltage.
 
-      const chosen = answers[Math.min(userCount, answers.length - 1)];
+---
+
+## The Two Golden Rules (Ideal Op-Amp with Negative Feedback)
+
+1. **Virtual Short:** The voltage difference between the inverting ($v^-$) and non-inverting ($v^+$) inputs is zero: $v^+ = v^-$
+2. **Virtual Open:** No current flows into either input terminal: $i^+ = i^- = 0$
+
+These rules are approximations valid when **negative feedback is applied**.
+
+---
+
+## Inverting Amplifier
+
+$$v_{out} = -\\frac{R_f}{R_{in}} \\cdot v_{in}$$
+
+> [!FORMULA]
+> **Closed-loop gain (inverting):** $A_{CL} = -\\frac{R_f}{R_{in}}$
+
+The negative sign indicates **180° phase inversion**.
+
+---
+
+## Non-Inverting Amplifier
+
+$$v_{out} = \\left(1 + \\frac{R_f}{R_1}\\right) v_{in}$$
+
+> [!FORMULA]
+> **Closed-loop gain (non-inverting):** $A_{CL} = 1 + \\frac{R_f}{R_1}$
+
+---
+
+## Checkpoint
+
+Using virtual short and virtual open rules, derive the output voltage of a **summing amplifier** with two inputs $v_1$ and $v_2$ connected through resistors $R_1$ and $R_2$ to the inverting input, and feedback resistor $R_f$.`;
+
+      } else if (isSemiconductor) {
+        response = `## Semiconductor Physics — Socratic Session
+
+> [!KEY]
+> Semiconductors have a **band gap** $E_g$ between the valence band and conduction band. At room temperature, thermal energy allows some electrons to cross this gap. Silicon has $E_g = 1.12\\,\\text{eV}$.
+
+---
+
+## Intrinsic Carrier Concentration
+
+The intrinsic carrier concentration $n_i$ determines the baseline conductivity of an undoped semiconductor:
+
+$$n_i = \\sqrt{N_C N_V} \\cdot e^{-E_g / 2kT}$$
+
+For Silicon at 300 K: $n_i \\approx 1.5 \\times 10^{10}\\,\\text{cm}^{-3}$
+
+---
+
+## Doping — Extrinsic Semiconductors
+
+**n-type doping** (donor atoms like Phosphorus): adds extra electrons
+$$n \\approx N_D, \\quad p = \\frac{n_i^2}{N_D}$$
+
+**p-type doping** (acceptor atoms like Boron): adds holes
+$$p \\approx N_A, \\quad n = \\frac{n_i^2}{N_A}$$
+
+> [!FORMULA]
+> **Mass Action Law** (always holds in equilibrium): $n \\cdot p = n_i^2$
+
+---
+
+## Fermi Level Position
+
+- Intrinsic: Fermi level $E_F$ is near mid-gap
+- n-type: $E_F$ shifts **toward the conduction band**
+- p-type: $E_F$ shifts **toward the valence band**
+
+$$E_F = E_i + kT \\ln\\left(\\frac{N_D}{n_i}\\right) \\quad \\text{(n-type)}$$
+
+**Checkpoint:** If $N_D = 10^{16}\\,\\text{cm}^{-3}$, calculate $E_F - E_i$ at 300 K. ($kT = 0.026\\,\\text{eV}$, $n_i = 1.5 \\times 10^{10}\\,\\text{cm}^{-3}$)`;
+
+      } else if (isFET) {
+        response = `## Field-Effect Transistor (FET) — Socratic Session
+
+> [!KEY]
+> Unlike BJT (current-controlled), FETs are **voltage-controlled** devices. The gate voltage controls the drain current through the electric field effect on the channel — no gate current flows in steady state.
+
+---
+
+## JFET vs MOSFET
+
+| Feature | JFET | MOSFET |
+|---------|------|--------|
+| Gate insulation | Reverse-biased p-n junction | Oxide (SiO₂) insulator |
+| Gate current | Small leakage current | Essentially zero |
+| $V_{GS}$ range | $V_P$ to 0 (depletion) | Above $V_{th}$ (enhancement) |
+
+---
+
+## JFET Drain Current
+
+For a JFET in the saturation region ($V_{DS} \\geq V_{GS} - V_P$):
+
+$$I_D = I_{DSS} \\left(1 - \\frac{V_{GS}}{V_P}\\right)^2$$
+
+where $I_{DSS}$ is the drain current at $V_{GS} = 0$ and $V_P$ is the **pinch-off voltage** (negative for n-channel JFET).
+
+> [!FORMULA]
+> **JFET Transconductance:** $g_m = g_{m0}\\left(1 - \\frac{V_{GS}}{V_P}\\right)$ where $g_{m0} = \\frac{-2 I_{DSS}}{V_P}$
+
+---
+
+**Checkpoint:** For a JFET with $I_{DSS} = 8\\,\\text{mA}$ and $V_P = -4\\,\\text{V}$, calculate $I_D$ when $V_{GS} = -1\\,\\text{V}$.`;
+
+      } else {
+        // Generic Socratic fallback for unrecognized topics
+        response = `## I Understand Your Question
+
+Let me address this clearly.
+
+> [!NOTE]
+> I'm your **Socratic Tutor** for UGC NET Electronics. I cover: Semiconductor Physics, p-n Diodes, BJT, FET, MOSFET, Op-Amps, Digital Electronics, Signals & Systems, and Electromagnetic Theory.
+
+---
+
+Based on your question, let me guide you toward the right conceptual framework.
+
+The key to answering this lies in understanding the **underlying physical principle** first, before applying any formula.
+
+**Can you tell me:**
+1. Which device or system are you asking about specifically?
+2. What is the context — derivation, numerical problem, or conceptual understanding?
+
+This will help me give you a targeted Socratic explanation rather than a generic one. The more specific your question, the more precisely I can guide you.
+
+*Try asking: "Explain BJT current gain" or "What is MOSFET transconductance?" or "Derive the diode equation"*`;
+      }
 
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: "ai",
-          content: chosen,
+          content: response,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           provider: "ChatGPT Browser",
           latency: "1.8s",
