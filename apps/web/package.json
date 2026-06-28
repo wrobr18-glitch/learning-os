@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:clean": "if (Test-Path .next) { Remove-Item -Recurse -Force .next }; next dev",
-    "clean": "if (Test-Path .next) { Remove-Item -Recurse -Force .next }",
+    "dev:clean": "node -e \"const fs = require('fs'); fs.rmSync('.next', { recursive: true, force: true });\" && next dev",
+    "clean": "node -e \"const fs = require('fs'); fs.rmSync('.next', { recursive: true, force: true });\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
