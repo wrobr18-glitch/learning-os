@@ -34,8 +34,14 @@ const SELECTORS = {
   },
   chatgpt: {
     url: "https://chatgpt.com/",
-    input: ['textarea#prompt-textarea', 'textarea[placeholder*="Message ChatGPT"]'],
-    sendBtn: ['button[data-testid="send-button"]', 'button.send-button', 'button[type="submit"]'],
+    input: [
+      'div[contenteditable="true"]',
+      '[placeholder*="Ask anything"]',
+      'textarea#prompt-textarea',
+      'textarea[placeholder*="Ask anything"]',
+      'textarea[placeholder*="Message ChatGPT"]'
+    ],
+    sendBtn: ['button[data-testid="send-button"]', 'button.send-button', 'button[type="submit"]', 'button:has(svg)'],
     responses: ['div[data-message-author-role="assistant"]', '.markdown.prose'],
     streamingIndicator: ['button[aria-label="Stop generating"]', '.streaming']
   }
@@ -119,13 +125,64 @@ async function processTask(task) {
       throw new Error("Could not locate response block on page.");
     }
 
-    const elements = await page.$$(responseSelector);
-    if (elements.length === 0) {
+    // Evaluate in page context to extract clean text with math symbols intact
+    const cleanTextRaw = await page.evaluate((sel) => {
+      const elements = document.querySelectorAll(sel);
+      if (elements.length === 0) return null;
+      
+      // Get the last response element
+      const el = elements[elements.length - 1];
+      const clone = el.cloneNode(true);
+
+      // 1. Process KaTeX math elements
+      const katexElements = clone.querySelectorAll(".katex");
+      katexElements.forEach((katexEl) => {
+        const annotation = katexEl.querySelector('annotation[encoding="application/x-tex"]');
+        if (annotation) {
+          const formula = annotation.textContent || "";
+          const isDisplay = katexEl.closest(".katex-display") !== null;
+          const replacement = isDisplay ? `\n$$${formula}$$\n` : `$${formula}$`;
+          katexEl.parentNode?.replaceChild(document.createTextNode(replacement), katexEl);
+        }
+      });
+
+      // 2. Process MathJax elements (if present)
+      // MathJax v2 script tags
+      const mathjaxScripts = clone.querySelectorAll('script[type^="math/tex"]');
+      mathjaxScripts.forEach((script) => {
+        const formula = script.textContent || "";
+        const typeAttr = script.getAttribute("type") || "";
+        const isDisplay = typeAttr.includes("display");
+        const replacement = isDisplay ? `\n$$${formula}$$\n` : `$${formula}$`;
+        script.parentNode?.replaceChild(document.createTextNode(replacement), script);
+      });
+
+      // MathJax v3 container tags
+      const mjxContainers = clone.querySelectorAll("mjx-container");
+      mjxContainers.forEach((container) => {
+        const mathEl = container.querySelector("math");
+        if (mathEl) {
+          const altText = mathEl.getAttribute("alttext") || "";
+          if (altText) {
+            const isDisplay = container.getAttribute("display") === "true";
+            const replacement = isDisplay ? `\n$$${altText}$$\n` : `$${altText}$`;
+            container.parentNode?.replaceChild(document.createTextNode(replacement), container);
+          }
+        }
+      });
+
+      // 3. Remove copy buttons and other UI noise inside code blocks
+      const copyButtons = clone.querySelectorAll("button");
+      copyButtons.forEach((btn) => btn.remove());
+
+      return clone.innerText || clone.textContent || "";
+    }, responseSelector);
+
+    if (!cleanTextRaw) {
       throw new Error("Response was empty or blocked.");
     }
 
-    const text = await elements[elements.length - 1].innerText();
-    const cleanText = text.trim();
+    const cleanText = cleanTextRaw.trim();
 
     if (!cleanText) {
       throw new Error("Extracted response text is empty.");
