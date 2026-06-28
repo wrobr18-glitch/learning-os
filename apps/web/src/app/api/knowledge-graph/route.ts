@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getNeo4jDriver } from "knowledge";
-import { supabase } from "database";
+import { supabase, supabaseAdmin } from "database";
 
 // Predefined layout coordinates for the 6 core seeded concepts
 const LAYOUT_MAP: Record<string, { x: number; y: number }> = {
@@ -34,9 +34,9 @@ export async function GET() {
       dependencies: record.get("dependencies").filter(Boolean),
     }));
 
-    // 2. Fetch student mastery scores from Supabase
-    // Using a placeholder student ID (or query parameter if authenticated)
-    const { data: masteryData, error: masteryErr } = await supabase
+    // 2. Fetch student mastery scores from Supabase using admin client to bypass RLS
+    const dbClient = supabaseAdmin || supabase;
+    const { data: masteryData, error: masteryErr } = await dbClient
       .from("mastery")
       .select("concept_id, knowledge_score");
 
