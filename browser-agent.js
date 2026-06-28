@@ -12,6 +12,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { chromium } = require("playwright");
 const path = require("path");
+const fs = require("fs");
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,8 +68,32 @@ async function processTask(task) {
 
   console.log(`🤖 Starting task ${task.id} for ${task.provider.toUpperCase()}...`);
 
+  // 1. Parse Session ID from System Prompt
+  let sessionId = "default";
+  let systemPrompt = task.system_prompt || "";
+  const sessionMatch = systemPrompt.match(/SESSION_ID: ([^\n]+)/);
+  if (sessionMatch) {
+    sessionId = sessionMatch[1].trim();
+    // Clean system prompt by stripping session ID prefix
+    systemPrompt = systemPrompt.replace(/SESSION_ID: [^\n]+\n*/, "").trim();
+  }
+
+  // 2. Read saved sessions history
+  const sessionsPath = path.join(__dirname, "sessions.json");
+  let sessions = {};
+  try {
+    if (fs.existsSync(sessionsPath)) {
+      sessions = JSON.parse(fs.readFileSync(sessionsPath, "utf8"));
+    }
+  } catch (err) {
+    console.warn("Could not read sessions.json:", err.message);
+  }
+
+  const savedUrl = sessions[sessionId];
+  const targetUrl = savedUrl || config.url;
+  console.log(`🔗 Session [${sessionId}] target URL: ${targetUrl}`);
+
   // Launch browser context using saved persistent profile
-  // BROWSER_HEADLESS defaults to false for bypass compatibility
   const isHeadless = process.env.BROWSER_HEADLESS === "true";
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: isHeadless,
@@ -83,7 +108,7 @@ async function processTask(task) {
   let page;
   try {
     page = await context.newPage();
-    await page.goto(config.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
 
     // 1. Resolve prompt input
     const inputSelector = await findSelector(page, config.input);
@@ -93,8 +118,8 @@ async function processTask(task) {
       throw new Error(`Input field not found. Screenshot saved to error-screenshot.png. Please log in first by running: node browser-login.js ${task.provider}`);
     }
 
-    const fullPrompt = task.system_prompt 
-      ? `${task.system_prompt}\n\nUser Request: ${task.prompt}` 
+    const fullPrompt = systemPrompt 
+      ? `${systemPrompt}\n\nUser Request: ${task.prompt}` 
       : task.prompt;
 
     // 2. Type and Submit prompt
@@ -186,6 +211,18 @@ async function processTask(task) {
 
     if (!cleanText) {
       throw new Error("Extracted response text is empty.");
+    }
+
+    // 5. Save the updated chat thread URL for session continuity
+    try {
+      const currentUrl = page.url();
+      if (currentUrl.includes("/c/")) {
+        sessions[sessionId] = currentUrl;
+        fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2), "utf8");
+        console.log(`💾 Saved session [${sessionId}] thread URL: ${currentUrl}`);
+      }
+    } catch (saveErr) {
+      console.warn("Failed to save session thread URL:", saveErr.message);
     }
 
     // Update database row to completed

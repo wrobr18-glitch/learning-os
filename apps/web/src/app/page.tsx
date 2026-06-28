@@ -436,6 +436,8 @@ function KnowledgeGraphSVG({
 /* ─── Main Interface ─── */
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "graph" | "planner">("dashboard");
+  const [chatMode, setChatMode] = useState<"queue" | "direct">("queue");
+  const [sessionId] = useState(() => "session_" + Math.random().toString(36).substring(2, 9));
   const [selectedNodeId, setSelectedNodeId] = useState<string>("semi");
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [inputValue, setInputValue] = useState("");
@@ -527,19 +529,43 @@ export default function Home() {
 
     setMessages((prev) => [...prev, userMsg]);
     if (!customPrompt) setInputValue("");
-    setIsTyping(true);
 
+    if (chatMode === "direct") {
+      // Direct Link mode: open ChatGPT pre-filled in their native browser!
+      const encodedPrompt = encodeURIComponent(trimmed);
+      const chatgptUrl = `https://chatgpt.com/?q=${encodedPrompt}`;
+      
+      // Open in a new tab
+      window.open(chatgptUrl, "_blank");
+      
+      // Append a system message indicating redirection
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: `*Prompt pre-filled! Opened ChatGPT in a new tab on your native browser/device.* \n\nDirect Link: [chatgpt.com](${chatgptUrl})`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          provider: "Direct Redirect (Native)",
+          latency: "0.1s",
+        }
+      ]);
+      return;
+    }
+
+    // Otherwise: Queue mode (Playwright on their laptop)
+    setIsTyping(true);
     const tempAiId = (Date.now() + 1).toString();
 
-    // Insert placeholder cloud consulting message block
+    // Insert placeholder queue message block
     setMessages((prev) => [
       ...prev,
       {
         id: tempAiId,
         role: "ai",
-        content: "*Consulting Socratic Cloud Tutor...*",
+        content: "*Waiting for ChatGPT Browser Agent on laptop...*",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        provider: "Llama 3.3 (Cloud Socratic)",
+        provider: "ChatGPT Browser (Queue)",
         latency: "Pending...",
       },
     ]);
@@ -571,39 +597,79 @@ export default function Home() {
     };
 
     try {
-      // Gather conversation history (last 8 messages for context preservation)
-      const history = messages
-        .slice(-8)
-        .map((m) => ({
-          role: m.role === "user" ? "user" : "assistant",
-          content: m.content
-        }));
+      // Explain-first Socratic system prompt with Session ID embedded!
+      const systemPrompt = `SESSION_ID: ${sessionId}
 
-      // Append active user query
-      history.push({ role: "user", content: trimmed });
+You are the Socratic AI Tutor for UGC NET Electronics & Communication.
+Your goal is to explain and teach concepts deeply, ensuring the student thoroughly understands the topics.
+Follow these rules to deliver a premium educational experience:
+1. EXPLAIN AND TEACH FIRST: When a student asks a question or wants to learn a topic, provide a comprehensive, detailed, and clear explanation of the topic. Do not just reply with another question or short statement.
+2. USE REAL-WORLD ANALOGIES: Introduce the topic with an intuitive, real-world analogy to help the student visualize the concept.
+3. DETAILED STEP-BY-STEP MATHEMATICS: Break down all mathematical equations, derivations, and formulas step-by-step.
+   - Use double-dollars $$... $$ for block math equations.
+   - Use single-dollars $... $ for inline math.
+   - Ensure you explain what each variable represents and outline boundary conditions.
+4. INCORPORATE RICH HIGHLIGHT BLOCKS:
+   - Use "> [!KEY] key takeaway" for essential insights.
+   - Use "> [!FORMULA] formula" for key mathematical equations.
+   - Use "> [!NOTE] note" for background information or exam tips.
+5. SOCRATIC WRAP-UP: At the very end of your detailed explanation, ask one or two high-quality guided questions (Checkpoint) to verify the student's understanding and prompt them to think critically about the next logical step.`;
 
-      // Call our cloud serverless endpoint
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ messages: history }),
-      });
+      // 1. Insert task into Supabase queue
+      const { data, error } = await supabase
+        .from("browser_tasks")
+        .insert({
+          provider: "chatgpt",
+          prompt: trimmed,
+          system_prompt: systemPrompt,
+          status: "PENDING",
+        })
+        .select();
 
-      if (!response.ok) {
-        throw new Error("Cloud API responded with error");
+      if (error || !data || data.length === 0) {
+        throw new Error(error?.message || "Failed to enqueue task");
       }
 
-      const resData = await response.json();
-      if (resData.error) {
-        throw new Error(resData.error);
-      }
+      const task = data[0];
+      const startTime = Date.now();
 
-      updateAiResponse(resData.response, resData.latency, "Llama 3.3 (Cloud Socratic)");
+      // 2. Poll the queue table
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max wait
+      const interval = setInterval(async () => {
+        attempts++;
+
+        const { data: pollData, error: pollErr } = await supabase
+          .from("browser_tasks")
+          .select("*")
+          .eq("id", task.id)
+          .single();
+
+        if (pollErr) {
+          clearInterval(interval);
+          useFallback("[Database error while polling queue]");
+          return;
+        }
+
+        if (pollData) {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+          if (pollData.status === "COMPLETED") {
+            clearInterval(interval);
+            updateAiResponse(pollData.response, elapsed, "ChatGPT Browser (Real)");
+          } else if (pollData.status === "FAILED") {
+            clearInterval(interval);
+            useFallback(`[Browser Agent error: ${pollData.error}]`);
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          useFallback("[Timeout waiting for Browser Agent]");
+        }
+      }, 1000);
 
     } catch (err) {
-      console.warn("Cloud chat failed. Falling back to offline socratic engine:", err.message);
+      console.warn("Queue submission failed. Falling back to offline socratic engine:", err.message);
       useFallback();
     }
   };
@@ -1005,10 +1071,29 @@ export default function Home() {
                   </svg>
                 </button>
               </div>
-              <div className="flex items-center justify-center gap-4 mt-2.5 text-[9px] font-mono text-slate-600">
-                <span>Routing: OpenRouter (Llama 3.3 70B)</span>
-                <span>•</span>
-                <span>Fallback Mode: ChatGPT Web Client</span>
+              <div className="flex items-center justify-center gap-4 mt-2.5 text-[10px] font-mono text-slate-400">
+                <span className="text-slate-600">Tutor Mode:</span>
+                <button
+                  onClick={() => setChatMode("queue")}
+                  className={`px-2.5 py-0.5 rounded border transition-all ${
+                    chatMode === "queue"
+                      ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-400 font-bold"
+                      : "border-transparent text-slate-600 hover:text-slate-400"
+                  }`}
+                >
+                  🤖 Laptop Agent Queue
+                </button>
+                <span className="text-slate-700">•</span>
+                <button
+                  onClick={() => setChatMode("direct")}
+                  className={`px-2.5 py-0.5 rounded border transition-all ${
+                    chatMode === "direct"
+                      ? "border-cyan-500/30 bg-cyan-950/20 text-cyan-400 font-bold"
+                      : "border-transparent text-slate-600 hover:text-slate-400"
+                  }`}
+                >
+                  📱 Direct Native Browser
+                </button>
               </div>
             </div>
 
