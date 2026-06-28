@@ -920,15 +920,15 @@ export default function Home() {
           <div className="flex-1 flex flex-col overflow-hidden animate-fade-in">
             
             {/* Chat viewport messages log */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 no-scrollbar">
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-4 sm:space-y-6 no-scrollbar">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-4 animate-slide-up ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                  className={`flex gap-2 sm:gap-4 animate-slide-up ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                 >
                   {/* Persona avatar */}
                   <div
-                    className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-black text-white ${
+                    className={`w-7 h-7 sm:w-9 sm:h-9 text-[10px] sm:text-xs rounded-lg sm:rounded-xl flex-shrink-0 flex items-center justify-center font-black text-white ${
                       msg.role === "ai"
                         ? "bg-gradient-to-tr from-cyan-600 to-purple-600 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
                         : "bg-gradient-to-tr from-cyan-500 to-emerald-500"
@@ -939,7 +939,7 @@ export default function Home() {
 
                   {/* Message Bubble box */}
                   <div
-                    className={`max-w-[75%] rounded-2xl p-5 border ${
+                    className={`max-w-[88%] sm:max-w-[78%] rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border ${
                       msg.role === "user"
                         ? "bg-gradient-to-br from-cyan-900/60 to-cyan-950/60 border-cyan-500/20 text-slate-100 rounded-tr-none"
                         : "bg-slate-900/40 backdrop-blur-md border-white/5 text-slate-200 rounded-tl-none"
@@ -968,17 +968,16 @@ export default function Home() {
 
               {/* Streaming wait block */}
               {isTyping && (
-                <div className="flex gap-4 animate-fade-in">
-                  <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-black bg-gradient-to-tr from-cyan-600 to-purple-600 text-white">
+                <div className="flex gap-2 sm:gap-4 animate-fade-in">
+                  <div className="w-7 h-7 sm:w-9 sm:h-9 text-[10px] sm:text-xs rounded-lg sm:rounded-xl flex-shrink-0 flex items-center justify-center font-black bg-gradient-to-tr from-cyan-600 to-purple-600 text-white">
                     AI
                   </div>
-                  <div className="bg-slate-900/40 border border-white/5 rounded-2xl rounded-tl-none p-4 px-6 flex items-center">
+                  <div className="bg-slate-900/40 border border-white/5 rounded-xl sm:rounded-2xl rounded-tl-none p-3.5 px-5 flex items-center">
                     <span className="text-xs text-slate-500 font-mono mr-3">Synthesizing response</span>
                     <ProgressCircle percentage={30} size={20} strokeWidth={2} color="cyan" />
                   </div>
                 </div>
               )}
-              
               <div ref={chatEndRef} />
             </div>
 

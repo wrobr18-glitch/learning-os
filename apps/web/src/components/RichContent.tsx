@@ -57,12 +57,21 @@ function parseInlineTokens(text: string): InlineToken[] {
   // Let's use a simpler regex that doesn't capture wrong math blocks
   const simpleRegex = /(\$[^$\n]+?\$|\*\*[^[**\n]]+?\*\*|`[^`\n]+?`)/g;
   
-  // Actually, we can tokenise safely:
   let idx = 0;
   while (idx < text.length) {
     const char = text[idx];
     
-    // Check for inline math $...$
+    // Check for double dollar block/inline math $$...$$
+    if (char === "$" && text[idx + 1] === "$") {
+      const nextIndex = text.indexOf("$$", idx + 2);
+      if (nextIndex !== -1 && nextIndex > idx + 2) {
+        tokens.push({ kind: "math-inline", content: text.slice(idx + 2, nextIndex) });
+        idx = nextIndex + 2;
+        continue;
+      }
+    }
+    
+    // Check for single dollar inline math $...$
     if (char === "$") {
       const nextIndex = text.indexOf("$", idx + 1);
       if (nextIndex !== -1 && nextIndex > idx + 1) {
