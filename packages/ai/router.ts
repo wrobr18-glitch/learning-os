@@ -72,6 +72,11 @@ export class CapabilityRouter {
       if (providerId === "chatgpt-browser") score += 20;
     }
 
+    // Direct bias to prioritize ChatGPT Browser over Gemini Browser
+    if (providerId === "chatgpt-browser") {
+      score += 15;
+    }
+
     // Success rate weight
     score += successRate * 15;
 
