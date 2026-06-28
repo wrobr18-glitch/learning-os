@@ -378,12 +378,12 @@ export function RichContent({ content }: RichContentProps) {
             }[block.kind];
 
             return (
-              <div key={i} className={`rounded-xl border ${calloutStyles.border} ${calloutStyles.bg} px-4.5 py-3.5 my-4.5 backdrop-blur-sm shadow-[0_0_20px_rgba(255,255,255,0.01)]`}>
-                <div className={`text-[10px] font-black uppercase tracking-widest ${calloutStyles.labelColor} mb-2 flex items-center gap-2 border-b border-white/5 pb-1`}>
+              <div key={i} className={`rounded-xl border ${calloutStyles.border} ${calloutStyles.bg} px-6 py-5 my-5 backdrop-blur-sm shadow-[0_0_20px_rgba(255,255,255,0.01)]`}>
+                <div className={`text-[10px] font-black uppercase tracking-widest ${calloutStyles.labelColor} mb-3 flex items-center gap-2 border-b border-white/5 pb-2`}>
                   <span>{calloutStyles.icon}</span>
                   {calloutStyles.label}
                 </div>
-                <div className="text-sm text-slate-300 leading-relaxed">
+                <div className="text-sm text-slate-300 leading-relaxed px-1">
                   {renderInline(block.tokens)}
                 </div>
               </div>
