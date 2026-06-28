@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { RichContent } from "../components/RichContent";
 
 /* ─── Types ─── */
 interface StudyTask {
@@ -96,8 +97,31 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: "1",
     role: "ai",
-    content:
-      "Hello! I am your Socratic AI Tutor. I've analyzed your student genome and flagged MOSFET transconductance as today's target. \n\nLet's start: Can you state the mathematical relation between drain current ID and gate-to-source voltage VGS in the saturation region?",
+    content: `## Welcome — Socratic Session: MOSFET Transconductance
+
+Hello! I'm your **Cognitive Tutor**. I've analyzed your student genome and identified that **MOSFET transconductance** is today's priority objective.
+
+> [!NOTE]
+> Your mistake log shows 3 recurring errors in transconductance derivations. We'll address them systematically using the **Socratic method** — I won't give you direct answers, but guide you to discover them.
+
+---
+
+## Lesson Objective
+
+By the end of this session, you will be able to:
+- Derive the expression for $g_m$ from first principles
+- State the three equivalent forms of the $g_m$ equation
+- Explain physically why $g_m$ depends on $I_D$ and device geometry
+
+---
+
+## Opening Question
+
+Consider a MOSFET biased in the **saturation region**. The drain current is governed by:
+
+$$I_D = \\frac{\\mu_n C_{ox}}{2} \\cdot \\frac{W}{L} \\cdot (V_{GS} - V_{th})^2$$
+
+Looking at this expression carefully — **what does the exponent of $(V_{GS} - V_{th})$ tell you** about the nature of the $I_D$ vs. $V_{GS}$ relationship? Is it linear, quadratic, or exponential?`,
     timestamp: "09:00 AM",
     provider: "ChatGPT Browser",
     latency: "1.2s",
@@ -442,13 +466,119 @@ export default function Home() {
 
     // Simulate Socratic AI pipeline response
     setTimeout(() => {
+      const userCount = messages.filter(m => m.role === "user").length;
+
       const answers = [
-        "In the saturation region, the drain current is given by: \n\n$$I_D = \\frac{1}{2} \\mu_n C_{ox} \\frac{W}{L} (V_{GS} - V_{th})^2$$\n\nObserve that the relation between $I_D$ and $V_{GS}$ is quadratic. Now, the transconductance $g_m$ represents the rate of change of drain current with respect to gate voltage:\n\n$$g_m = \\frac{\\partial I_D}{\\partial V_{GS}}$$\n\nIf you differentiate $I_D$ with respect to $V_{GS}$, what equation do you obtain? Try solving it.",
-        "Spot on! We get:\n\n$$g_m = \\mu_n C_{ox} \\frac{W}{L} (V_{GS} - V_{th}) = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D} = \\frac{2 I_D}{V_{GS} - V_{th}}$$\n\nThis gives us three alternative expressions for $g_m$. Note the relation: $g_m$ is proportional to $I_D$ in one form, but proportional to $\\sqrt{I_D}$ in another. Why do you think this distinction occurs in design configurations?",
-        "Think of the physical channel behavior: when $V_{DS} > V_{GS} - V_{th}$, the inversion layer vanishes near the drain side (pinch-off). That locks the carrier velocity, making the current independent of $V_{DS}$ (ideally). \n\nIf we increase the width $W$ while holding $I_D$ constant, what happens to the transconductance $g_m$?",
+        // Response 1: Quadratic relationship + definition of gm
+        `## Good Start — Analysing the Relationship
+
+You are correct — the relationship is **quadratic**. The exponent 2 on $(V_{GS} - V_{th})$ tells us that $I_D$ grows as the **square** of the overdrive voltage.
+
+> [!KEY]
+> **Overdrive voltage** is defined as $V_{OV} = V_{GS} - V_{th}$. This is the gate voltage beyond the threshold at which the MOSFET channel begins conducting.
+
+---
+
+## Step 1 — Formal Definition of Transconductance
+
+**Transconductance** $g_m$ is defined as the **partial derivative** of drain current with respect to gate voltage, at constant $V_{DS}$:
+
+$$g_m = \\left. \\frac{\\partial I_D}{\\partial V_{GS}} \\right|_{V_{DS} = \\text{const}}$$
+
+This physically means: *how much extra drain current flows when we increase the gate voltage by 1 Volt?*
+
+---
+
+## Step 2 — Your Task
+
+Now differentiate the saturation current expression:
+
+$$I_D = \\frac{\\mu_n C_{ox}}{2} \\cdot \\frac{W}{L} \\cdot (V_{GS} - V_{th})^2$$
+
+with respect to $V_{GS}$.
+
+**What do you get?** Write out the result step by step.`,
+
+        // Response 2: Three forms + physical intuition
+        `## Excellent Derivation! ✓
+
+Your differentiation is correct. Taking $\\frac{\\partial I_D}{\\partial V_{GS}}$ of the saturation expression gives us the **first form** of transconductance:
+
+> [!FORMULA]
+> $$g_m = \\mu_n C_{ox} \\frac{W}{L} (V_{GS} - V_{th})$$
+
+---
+
+## The Three Equivalent Expressions for $g_m$
+
+From the first form and the expression for $I_D$, we can derive two more equivalent forms. Study these carefully — UGC NET will test all three:
+
+### Form 1 — In terms of overdrive voltage $V_{OV}$
+$$g_m = \\mu_n C_{ox} \\frac{W}{L} V_{OV}$$
+
+### Form 2 — In terms of drain current $I_D$
+$$g_m = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D}$$
+
+*(Derived by substituting $I_D = \\frac{\\mu_n C_{ox} W}{2L} V_{OV}^2$ into Form 1)*
+
+### Form 3 — Ratio form
+$$g_m = \\frac{2 I_D}{V_{GS} - V_{th}} = \\frac{2 I_D}{V_{OV}}$$
+
+---
+
+> [!NOTE]
+> **Important Insight:** In **Form 2**, $g_m \\propto \\sqrt{I_D}$, while in **Form 3**, $g_m \\propto I_D$. This apparent contradiction arises because $V_{OV}$ also changes with $I_D$. When you hold $V_{OV}$ fixed and vary $W/L$, you use Form 1. When you hold $W/L$ fixed and vary $I_D$, Form 2 is more natural.
+
+---
+
+## Socratic Checkpoint
+
+If a designer **doubles** the width $W$ while keeping $I_D$ **constant** (by halving $V_{OV}$ accordingly), what happens to $g_m$? Use **Form 1** to reason this out.`,
+
+        // Response 3: Width scaling + pinch-off + deep physical intuition
+        `## Correct Physical Reasoning!
+
+You've identified the core tradeoff. Let's formalize it:
+
+### Scenario: Double $W$, Hold $I_D$ Constant
+
+If $I_D$ is fixed and $W$ doubles, then since $I_D = \\frac{\\mu_n C_{ox} W}{2L} V_{OV}^2$, the overdrive $V_{OV}$ must **decrease** to compensate. Using Form 1:
+
+$$g_m = \\mu_n C_{ox} \\frac{W}{L} V_{OV}$$
+
+Even though $V_{OV}$ drops, $W$ has doubled — and the product $W \\cdot V_{OV}$ still **increases** via Form 2:
+
+$$g_m = \\sqrt{2 \\mu_n C_{ox} \\frac{W}{L} I_D} \\quad \\Rightarrow \\quad g_m \\propto \\sqrt{W}$$
+
+> [!KEY]
+> **Doubling $W$ at constant $I_D$ increases $g_m$ by $\\sqrt{2}$ (≈ 41%).** This is a fundamental CMOS analog design technique called **device upsizing for gain improvement**.
+
+---
+
+## The Channel Pinch-off Mechanism
+
+Now let's address **why saturation occurs**. When $V_{DS} > V_{GS} - V_{th} = V_{OV}$:
+
+- The channel potential at the drain end reaches $V_{GS} - V_{th}$
+- The inversion layer charge $Q_{inv}$ at the drain becomes zero (the channel "pinches off")
+- Despite the channel narrowing, current continues to flow by **drift of carriers** in the high-field depletion region near the drain
+- $I_D$ becomes **independent of $V_{DS}$** — this is the saturation plateau
+
+> [!FORMULA]
+> $$I_{D,sat} = \\frac{\\mu_n C_{ox}}{2} \\cdot \\frac{W}{L} \\cdot V_{OV}^2 \\quad \\text{(independent of } V_{DS}\\text{)}$$
+
+---
+
+## UGC NET Level MCQ Challenge
+
+A MOSFET has $\\mu_n C_{ox} = 200\\,\\mu\\text{A/V}^2$, $W/L = 10$, and $V_{OV} = 0.5\\,\\text{V}$.
+
+**Calculate:** (a) $I_D$ in saturation, (b) $g_m$ using Form 1, (c) verify using Form 3.
+
+Work through these and share your answers — I'll check each step.`,
       ];
 
-      const chosen = answers[Math.min(messages.filter(m => m.role === "user").length, answers.length - 1)];
+      const chosen = answers[Math.min(userCount, answers.length - 1)];
 
       setMessages((prev) => [
         ...prev,
@@ -780,20 +910,12 @@ export default function Home() {
                         : "bg-slate-900/40 backdrop-blur-md border-white/5 text-slate-200 rounded-tl-none"
                     }`}
                   >
-                    {/* Render helper text (with basic LaTeX simulation highlighting) */}
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap font-sans space-y-4">
-                      {msg.content.split("\n\n").map((para, pIdx) => {
-                        // Very basic markdown bolding conversion
-                        const parts = para.split("**");
-                        return (
-                          <p key={pIdx}>
-                            {parts.map((part, partIdx) => 
-                              partIdx % 2 === 1 ? <strong key={partIdx} className="text-cyan-400 font-extrabold">{part}</strong> : part
-                            )}
-                          </p>
-                        );
-                      })}
-                    </div>
+                    {/* Rich content renderer with LaTeX, markdown, callouts */}
+                    {msg.role === "user" ? (
+                      <p className="text-sm leading-relaxed text-slate-100 whitespace-pre-wrap">{msg.content}</p>
+                    ) : (
+                      <RichContent content={msg.content} />
+                    )}
 
                     {/* Meta info footer */}
                     <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-4 text-[10px] text-slate-500 font-mono">
